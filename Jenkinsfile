@@ -55,6 +55,9 @@ pipeline {
         }
 
         stage('Docker Build') {
+            when {
+                branch 'main'
+            }
             steps {
                 script {
                     echo "Starting Docker build..."
@@ -79,6 +82,9 @@ pipeline {
         }
 
         stage('Docker Push') {
+            when {
+                branch 'main'
+            }
             steps {
                 script {
                     echo "Starting Docker push..."
@@ -114,6 +120,9 @@ pipeline {
         }
 
         stage('Deploy') {
+            when {
+                branch 'main'
+            }
             steps {
                 script {
                     echo "Starting deployment..."
