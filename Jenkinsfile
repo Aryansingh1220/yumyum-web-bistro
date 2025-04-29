@@ -7,6 +7,7 @@ pipeline {
         DOCKER_IMAGE = 'aryansingh11/yumyum-restaurant'
         DOCKER_TAG = "${env.BUILD_NUMBER}"
         DEPLOY_SERVER = 'your-deployment-server'
+        RUN_DOCKER_STAGES = 'true'
     }
 
     stages {
@@ -57,6 +58,11 @@ pipeline {
         }
 
         stage('Docker Build') {
+            when {
+                expression { 
+                    return env.RUN_DOCKER_STAGES == 'true' 
+                }
+            }
             steps {
                 script {
                     echo "Starting Docker build stage..."
@@ -78,6 +84,11 @@ pipeline {
         }
 
         stage('Docker Push') {
+            when {
+                expression { 
+                    return env.RUN_DOCKER_STAGES == 'true' 
+                }
+            }
             steps {
                 script {
                     echo "Starting Docker push stage..."
@@ -97,6 +108,11 @@ pipeline {
         }
 
         stage('Deploy') {
+            when {
+                expression { 
+                    return env.RUN_DOCKER_STAGES == 'true' 
+                }
+            }
             steps {
                 script {
                     echo "Starting deployment stage..."
