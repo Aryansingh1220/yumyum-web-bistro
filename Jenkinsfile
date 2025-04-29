@@ -54,46 +54,55 @@ pipeline {
         }
 
         stage('Docker Build') {
-            when {
-                branch 'master'
-            }
             steps {
                 script {
-                    bat "docker build -t ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG} ."
-                    bat "docker tag ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:latest"
+                    try {
+                        bat "docker build -t ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG} ."
+                        bat "docker tag ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:latest"
+                    } catch (Exception e) {
+                        echo "Docker build failed: ${e.message}"
+                        currentBuild.result = 'FAILURE'
+                        error "Docker build failed"
+                    }
                 }
             }
         }
 
         stage('Docker Push') {
-            when {
-                branch 'master'
-            }
             steps {
                 script {
-                    withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
-                        bat "echo %DOCKER_PASSWORD% | docker login ${DOCKER_REGISTRY} -u %DOCKER_USERNAME% --password-stdin"
-                        bat "docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}"
-                        bat "docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:latest"
+                    try {
+                        withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                            bat "echo %DOCKER_PASSWORD% | docker login ${DOCKER_REGISTRY} -u %DOCKER_USERNAME% --password-stdin"
+                            bat "docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}"
+                            bat "docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:latest"
+                        }
+                    } catch (Exception e) {
+                        echo "Docker push failed: ${e.message}"
+                        currentBuild.result = 'FAILURE'
+                        error "Docker push failed"
                     }
                 }
             }
         }
 
         stage('Deploy') {
-            when {
-                branch 'master'
-            }
             steps {
                 script {
-                    withCredentials([usernamePassword(credentialsId: 'deploy-server', usernameVariable: 'DEPLOY_USER', passwordVariable: 'DEPLOY_PASSWORD')]) {
-                        bat """
-                            echo "Deploying to production server..."
-                            plink -ssh %DEPLOY_USER%@${DEPLOY_SERVER} -pw %DEPLOY_PASSWORD% "cd /opt/yumyum && \
-                            docker pull ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG} && \
-                            docker-compose down && \
-                            docker-compose up -d"
-                        """
+                    try {
+                        withCredentials([usernamePassword(credentialsId: 'deploy-server', usernameVariable: 'DEPLOY_USER', passwordVariable: 'DEPLOY_PASSWORD')]) {
+                            bat """
+                                echo "Deploying to production server..."
+                                plink -ssh %DEPLOY_USER%@${DEPLOY_SERVER} -pw %DEPLOY_PASSWORD% "cd /opt/yumyum && \
+                                docker pull ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG} && \
+                                docker-compose down && \
+                                docker-compose up -d"
+                            """
+                        }
+                    } catch (Exception e) {
+                        echo "Deployment failed: ${e.message}"
+                        currentBuild.result = 'FAILURE'
+                        error "Deployment failed"
                     }
                 }
             }
