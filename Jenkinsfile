@@ -14,6 +14,8 @@ pipeline {
             steps {
                 checkout scm
                 echo "Current branch: ${env.BRANCH_NAME}"
+                echo "Build number: ${env.BUILD_NUMBER}"
+                bat 'git branch'
             }
         }
 
@@ -55,24 +57,18 @@ pipeline {
         }
 
         stage('Docker Build') {
-            when {
-                branch 'main'
-            }
             steps {
                 script {
-                    echo "Starting Docker build..."
-                    echo "Building image: ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}"
+                    echo "Starting Docker build stage..."
+                    echo "Current branch: ${env.BRANCH_NAME}"
                     
-                    // Ensure Docker is running
-                    bat 'docker info'
+                    // Check if Docker is installed and running
+                    def dockerCheck = bat(script: 'docker --version', returnStdout: true)
+                    echo "Docker version: ${dockerCheck}"
                     
                     // Build the image
-                    def buildStatus = bat(script: "docker build -t ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG} .", returnStatus: true)
-                    if (buildStatus != 0) {
-                        echo "Docker build failed"
-                        currentBuild.result = 'FAILURE'
-                        error "Docker build failed"
-                    }
+                    echo "Building image: ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}"
+                    bat "docker build -t ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG} ."
                     
                     // Tag the image
                     bat "docker tag ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:latest"
@@ -82,81 +78,55 @@ pipeline {
         }
 
         stage('Docker Push') {
-            when {
-                branch 'main'
-            }
             steps {
                 script {
-                    echo "Starting Docker push..."
-                    try {
-                        withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
-                            echo "Logging into Docker Hub..."
-                            bat "echo %DOCKER_PASSWORD% | docker login ${DOCKER_REGISTRY} -u %DOCKER_USERNAME% --password-stdin"
-                            
-                            echo "Pushing images..."
-                            def pushStatus = bat(script: "docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}", returnStatus: true)
-                            if (pushStatus != 0) {
-                                echo "Failed to push versioned image"
-                                currentBuild.result = 'FAILURE'
-                                error "Docker push failed"
-                            }
-                            
-                            def pushLatestStatus = bat(script: "docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:latest", returnStatus: true)
-                            if (pushLatestStatus != 0) {
-                                echo "Failed to push latest image"
-                                currentBuild.result = 'FAILURE'
-                                error "Docker push failed"
-                            }
-                            
-                            echo "Docker push completed successfully"
-                        }
-                    } catch (Exception e) {
-                        echo "Docker push failed: ${e.message}"
-                        currentBuild.result = 'FAILURE'
-                        error "Docker push failed"
+                    echo "Starting Docker push stage..."
+                    echo "Current branch: ${env.BRANCH_NAME}"
+                    
+                    withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                        echo "Logging into Docker Hub..."
+                        bat "echo %DOCKER_PASSWORD% | docker login ${DOCKER_REGISTRY} -u %DOCKER_USERNAME% --password-stdin"
+                        
+                        echo "Pushing images..."
+                        bat "docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}"
+                        bat "docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:latest"
+                        echo "Docker push completed successfully"
                     }
                 }
             }
         }
 
         stage('Deploy') {
-            when {
-                branch 'main'
-            }
             steps {
                 script {
-                    echo "Starting deployment..."
-                    try {
-                        withCredentials([usernamePassword(credentialsId: 'deploy-server', usernameVariable: 'DEPLOY_USER', passwordVariable: 'DEPLOY_PASSWORD')]) {
-                            echo "Connecting to deployment server..."
-                            
-                            // Create deployment script
-                            writeFile file: 'deploy.sh', text: """
-                                #!/bin/bash
-                                cd /opt/yumyum
-                                docker pull ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}
-                                docker-compose down
-                                docker-compose up -d
-                            """
-                            
-                            // Copy deployment script to server
-                            bat """
-                                echo "Copying deployment script to server..."
-                                pscp -pw %DEPLOY_PASSWORD% deploy.sh %DEPLOY_USER%@${DEPLOY_SERVER}:/opt/yumyum/
-                            """
-                            
-                            // Execute deployment script
-                            bat """
-                                echo "Executing deployment..."
-                                plink -ssh %DEPLOY_USER%@${DEPLOY_SERVER} -pw %DEPLOY_PASSWORD% "chmod +x /opt/yumyum/deploy.sh && /opt/yumyum/deploy.sh"
-                            """
-                            
-                            echo "Deployment completed successfully"
-                        }
-                    } catch (Exception e) {
-                        echo "Deployment failed: ${e.message}"
-                        currentBuild.result = 'FAILURE'
-                        error "Deployment failed"
+                    echo "Starting deployment stage..."
+                    echo "Current branch: ${env.BRANCH_NAME}"
+                    
+                    withCredentials([usernamePassword(credentialsId: 'deploy-server', usernameVariable: 'DEPLOY_USER', passwordVariable: 'DEPLOY_PASSWORD')]) {
+                        echo "Connecting to deployment server..."
+                        
+                        // Create deployment script
+                        writeFile file: 'deploy.sh', text: """
+                            #!/bin/bash
+                            cd /opt/yumyum
+                            docker pull ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}
+                            docker-compose down
+                            docker-compose up -d
+                        """
+                        
+                        // Copy deployment script to server
+                        bat """
+                            echo "Copying deployment script to server..."
+                            pscp -pw %DEPLOY_PASSWORD% deploy.sh %DEPLOY_USER%@${DEPLOY_SERVER}:/opt/yumyum/
+                        """
+                        
+                        // Execute deployment script
+                        bat """
+                            echo "Executing deployment..."
+                            plink -ssh %DEPLOY_USER%@${DEPLOY_SERVER} -pw %DEPLOY_PASSWORD% "chmod +x /opt/yumyum/deploy.sh && /opt/yumyum/deploy.sh"
+                        """
+                        
+                        echo "Deployment completed successfully"
                     }
                 }
             }
