@@ -1,28 +1,31 @@
 # Build stage
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 
 WORKDIR /app
+
+# Copy package files
 COPY package*.json ./
+
+# Install dependencies
 RUN npm ci --legacy-peer-deps
 
+# Copy source code
 COPY . .
+
+# Build the application
 RUN npm run build
 
 # Production stage
-FROM node:18-alpine AS runner
+FROM nginx:alpine
 
-WORKDIR /app
+# Copy built files from builder stage
+COPY --from=builder /app/dist /usr/share/nginx/html
 
-ENV NODE_ENV=production
+# Copy nginx configuration
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/package*.json ./
+# Expose port 80
+EXPOSE 80
 
-RUN npm ci --only=production --legacy-peer-deps
-
-# Clean up
-RUN rm -rf /root/.npm
-
-EXPOSE 3000
-
-CMD ["npm", "run", "preview"]
+# Start nginx
+CMD ["nginx", "-g", "daemon off;"]

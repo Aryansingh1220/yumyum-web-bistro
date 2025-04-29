@@ -2,11 +2,11 @@ version: '3.8'
 
 services:
   web:
-    image: docker.io/yumyum-restaurant:latest
+    image: aryansingh11/yumyum-restaurant:latest
     container_name: yumyum-web
     restart: always
     ports:
-      - "3000:3000"
+      - "80:80"
     environment:
       - NODE_ENV=production
     volumes:
