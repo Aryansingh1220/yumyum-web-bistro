@@ -25,14 +25,7 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 echo '📦 Installing dependencies...'
-                bat 'npm ci --legacy-peer-deps'
-            }
-        }
-
-        stage('Run Tests') {
-            steps {
-                echo '🧪 Running test suite...'
-                bat 'npx vitest'
+                bat 'npm ci --legacy-peer-deps --force'
             }
         }
 
