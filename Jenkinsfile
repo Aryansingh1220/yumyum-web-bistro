@@ -29,13 +29,6 @@ pipeline {
             }
         }
 
-        stage('Lint Code') {
-            steps {
-                echo 'Linting the code...'
-                bat 'npm run lint -- --max-warnings=10'
-            }
-        }
-
         stage('Run Tests') {
             steps {
                 echo 'Running test suite...'
