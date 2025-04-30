@@ -14,25 +14,27 @@ pipeline {
             steps {
                 checkout scm
                 echo "Current branch: ${env.BRANCH_NAME}"
-                echo "Build number: ${env.BUILD_NUMBER}"
                 bat 'git branch'
             }
         }
 
         stage('Install Dependencies') {
             steps {
+                echo "Installing dependencies..."
                 bat 'npm ci --legacy-peer-deps'
             }
         }
 
         stage('Lint') {
             steps {
+                echo "Running linting..."
                 bat 'npm run lint -- --max-warnings 10'
             }
         }
 
         stage('Test') {
             steps {
+                echo "Running tests..."
                 script {
                     def testStatus = bat(script: 'npm test', returnStatus: true)
                     def coverageStatus = bat(script: 'npm run test:coverage', returnStatus: true)
@@ -46,20 +48,25 @@ pipeline {
 
         stage('Build') {
             steps {
+                echo "Building the application..."
                 bat 'npm run build'
             }
         }
 
         stage('Security Scan') {
             steps {
+                echo "Running security scan..."
                 bat 'npm audit'
             }
         }
 
         stage('Docker Build') {
+            when {
+                branch 'master' // Only build on the 'master' branch
+            }
             steps {
+                echo "Starting Docker build stage..."
                 script {
-                    echo "Starting Docker build stage..."
                     def dockerCheck = bat(script: 'docker --version', returnStdout: true)
                     echo "Docker version: ${dockerCheck}"
                     echo "Building image: ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}"
@@ -71,9 +78,12 @@ pipeline {
         }
 
         stage('Docker Push') {
+            when {
+                branch 'master' // Only push on the 'master' branch
+            }
             steps {
+                echo "Starting Docker push stage..."
                 script {
-                    echo "Starting Docker push stage..."
                     withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
                         echo "Logging into Docker Hub..."
                         bat "echo %DOCKER_PASSWORD% | docker login ${DOCKER_REGISTRY} -u %DOCKER_USERNAME% --password-stdin"
@@ -87,8 +97,8 @@ pipeline {
 
         stage('Deploy') {
             steps {
+                echo "Starting deployment stage..."
                 script {
-                    echo "Starting deployment stage..."
                     withCredentials([usernamePassword(credentialsId: 'deploy-server', usernameVariable: 'DEPLOY_USER', passwordVariable: 'DEPLOY_PASSWORD')]) {
                         writeFile file: 'deploy.sh', text: """
                             #!/bin/bash
