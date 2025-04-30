@@ -17,35 +17,35 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                echo 'Cloning repository...'
+                echo '📥 Cloning repository...'
                 checkout scm
             }
         }
 
         stage('Install Dependencies') {
             steps {
-                echo 'Installing dependencies...'
+                echo '📦 Installing dependencies...'
                 bat 'npm ci --legacy-peer-deps'
             }
         }
 
         stage('Run Tests') {
             steps {
-                echo 'Running test suite...'
-                bat 'npm test'
+                echo '🧪 Running test suite...'
+                bat 'npx vitest'
             }
         }
 
         stage('Build Project') {
             steps {
-                echo 'Building the project...'
+                echo '🏗️ Building the project...'
                 bat 'npm run build'
             }
         }
 
         stage('Archive Artifacts') {
             steps {
-                echo 'Archiving build artifacts...'
+                echo '🗂️ Archiving build artifacts...'
                 archiveArtifacts artifacts: 'build/**', fingerprint: true
             }
         }
