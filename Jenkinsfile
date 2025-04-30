@@ -25,21 +25,23 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 echo '📦 Installing dependencies...'
-                bat 'npm ci --legacy-peer-deps --force'
+                bat 'npm ci --legacy-peer-deps'
+                bat 'npm install -g vite'
             }
         }
 
         stage('Build Project') {
             steps {
                 echo '🏗️ Building the project...'
-                bat 'npm run build'
+                bat 'npx tsc'
+                bat 'npx vite build'
             }
         }
 
         stage('Archive Artifacts') {
             steps {
                 echo '🗂️ Archiving build artifacts...'
-                archiveArtifacts artifacts: 'build/**', fingerprint: true
+                archiveArtifacts artifacts: 'dist/**', fingerprint: true
             }
         }
     }
